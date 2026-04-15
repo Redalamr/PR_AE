@@ -1,6 +1,7 @@
 # ============================================
 # Projet Majeur IA — Pipeline OCR Tableau Blanc
 # ESAIP · IR4-S8 · 2025–2026
+# V2 — Streamlit + LLM + LaTeX-OCR
 # ============================================
 
 # --- Core ---
@@ -15,7 +16,18 @@ torchvision>=0.15.0
 # --- OCR Engines ---
 python-doctr[torch]>=0.7.0
 pytesseract>=0.3.10
-transformers>=4.30.0       # TrOCR
+transformers>=4.30.0       # TrOCR + Nougat
+
+# --- V2 : LaTeX-OCR ---
+pix2tex>=0.1.1             # LaTeX-OCR (formules → LaTeX)
+# nougat-ocr               # Optionnel — Nougat (Meta), très lourd (~2GB)
+
+# --- V2 : Correction LLM ---
+openai>=1.0.0              # OpenAI API (GPT-4o-mini)
+anthropic>=0.25.0          # Anthropic API (Claude 3.5 Sonnet)
+
+# --- V2 : Interface Web ---
+streamlit>=1.30.0
 
 # --- Data Augmentation ---
 albumentations>=1.3.0

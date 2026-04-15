@@ -133,3 +133,33 @@ EVAL_PIPELINE_TIME = 60
 MLFLOW_TRACKING_URI = str(LOGS_DIR / "mlruns")
 MLFLOW_EXPERIMENT_CLASSIFIER = "block_classifier"
 MLFLOW_EXPERIMENT_OCR = "ocr_finetuning"
+
+# ============================================
+# V2 — CORRECTION LLM
+# ============================================
+LLM_DEFAULT_PROVIDER = "simulate"          # "openai", "anthropic", "simulate"
+LLM_DEFAULT_MODEL_OPENAI = "gpt-4o-mini"
+LLM_DEFAULT_MODEL_ANTHROPIC = "claude-3-5-sonnet-20241022"
+LLM_TEMPERATURE = 0.0                      # Déterministe pour la correction
+
+# ============================================
+# V2 — LATEX-OCR
+# ============================================
+LATEX_OCR_BACKEND = "pix2tex"              # "pix2tex", "nougat", "simulate"
+NOUGAT_MODEL_NAME = "facebook/nougat-base"
+
+# Labels de blocs reconnus comme "mathématiques"
+MATH_BLOCK_LABELS = {"equation", "math", "formula", "latex", "mathematical"}
+
+# ============================================
+# V2 — CLASSIFICATION ÉTENDUE
+# ============================================
+# Extension du dictionnaire V0 pour supporter les blocs maths
+BLOCK_CLASSES_V2 = {0: "text", 1: "figure", 2: "equation"}
+BLOCK_CLASSES_V2_INV = {"text": 0, "figure": 1, "equation": 2}
+
+# ============================================
+# V2 — STREAMLIT
+# ============================================
+STREAMLIT_MAX_UPLOAD_MB = 20
+STREAMLIT_DEFAULT_BINARIZATION = "adaptive_clahe"

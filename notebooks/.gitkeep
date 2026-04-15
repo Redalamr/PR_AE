@@ -1,0 +1,5 @@
+# Ce dossier contiendra les notebooks d'analyse :
+# - preprocessing_ablation.ipynb
+# - block_classifier_eval.ipynb
+# - ocr_ablation_results.ipynb
+# - final_results_dashboard.ipynb

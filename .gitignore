@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual env
+venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Models (trop lourds pour Git)
+models/*.pth
+models/*.pt
+
+# Données
+data/iam*/
+data/synthetic*/
+data/splits/
+
+# Outputs
+output/results/
+captures/
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MLflow
+mlruns/
+
+# Jupyter
+.ipynb_checkpoints/

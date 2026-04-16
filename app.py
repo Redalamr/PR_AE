@@ -217,9 +217,13 @@ def load_latex_engine(backend: str):
 
 
 @st.cache_resource
-def load_llm_corrector(provider: str, api_key: Optional[str] = None):
-    """Charge et cache le correcteur LLM."""
-    return LLMCorrector(provider=provider, api_key=api_key if api_key else None)
+def load_llm_corrector(provider: str, api_key: str = ""):
+    """api_key dans la signature = inclus dans la clé de cache Streamlit."""
+    return LLMCorrector(provider=provider, api_key=api_key or None)
+
+@st.cache_resource
+def get_block_detector():
+    return BlockDetector()
 
 
 def uploaded_file_to_cv2(uploaded_file) -> np.ndarray:
@@ -279,7 +283,11 @@ def generate_pdf_bytes(
         tmp_path = Path(tmp.name)
 
     generator.output_dir = tmp_path.parent
-    pdf_path = generator.save(tmp_path.name)
+    stem = tmp_path.stem  # sans extension
+    pdf_path = generator.save(stem + ".pdf")
+    # Vérification de sécurité
+    if not pdf_path.exists():
+        raise RuntimeError(f"PDF non généré à l'emplacement attendu : {pdf_path}")
 
     with open(pdf_path, "rb") as f:
         pdf_bytes = f.read()
@@ -442,6 +450,10 @@ def run_pipeline(
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 with st.sidebar:
+    if st.button("🗑️ Réinitialiser", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
     st.markdown("## ⚙️ Configuration")
     st.markdown("---")
 
@@ -541,12 +553,12 @@ with col_upload:
         st.session_state["use_demo_image"] = False
 
 if st.session_state.get("use_demo_image", False) and uploaded_file is None:
-    demo_path = Path("demo_images/02_moyenne.png")
+    demo_path = Path("demo_images/01_facile.png")
     if demo_path.exists():
         with open(demo_path, "rb") as f:
             file_bytes = f.read()
         uploaded_file = io.BytesIO(file_bytes)
-        uploaded_file.name = "02_moyenne.png"
+        uploaded_file.name = "01_facile.png"
         uploaded_file.getvalue = lambda: file_bytes
 
 with col_info:
@@ -613,7 +625,7 @@ if uploaded_file is not None:
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
     # ── Bouton de lancement ──
-    col_btn, col_spacer = st.columns([1, 2])
+    col_btn, col_spacer = st.columns([2, 2])
     with col_btn:
         process_btn = st.button(
             "🚀 Lancer le traitement OCR",
@@ -704,8 +716,7 @@ if uploaded_file is not None:
         with col_blocks:
             st.markdown("#### 🧩 Blocs Détectés")
             # Visualisation des blocs
-            detector = BlockDetector()
-            vis = detector.visualize(image, result.blocks)
+            vis = get_block_detector().visualize(image, result.blocks)
             st.image(cv2_to_pil(vis), caption=f"{result.block_count} blocs", use_container_width=True)
 
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)

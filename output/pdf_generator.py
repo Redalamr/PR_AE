@@ -111,7 +111,9 @@ class PDFGenerator:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"tableau_blanc_{timestamp}.pdf"
 
-        output_path = self.output_dir / filename
+        # Forcer le nom de fichier uniquement, sans chemin parent
+        safe_name = Path(filename).name
+        output_path = self.output_dir / safe_name
 
         header = [
             Paragraph(self.title, self.styles["Title"]),

@@ -117,11 +117,17 @@ class ImageEnhancer:
 
     def binarize_adaptive(self, gray: np.ndarray) -> np.ndarray:
         """Binarisation par seuillage adaptatif local."""
+        block_size = self.adaptive_block
+        # cv2.adaptiveThreshold exige un entier impair >= 3
+        if block_size < 3:
+            block_size = 3
+        if block_size % 2 == 0:
+            block_size += 1
         binary = cv2.adaptiveThreshold(
             gray, 255,
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
             cv2.THRESH_BINARY_INV,
-            self.adaptive_block,
+            block_size,
             self.adaptive_c,
         )
         return binary

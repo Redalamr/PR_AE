@@ -300,7 +300,12 @@ class LLMCorrector:
 
         corrected = text
         for pattern, replacement in corrections.items():
-            corrected = re.sub(pattern, replacement, corrected)
+            if pattern in [r"\bCN[NM]\b", r"\bRN[NM]\b", r"\bLSTlvl\b", r"\bLSTM\b", r"\bGA[NM]\b", r"\bVA[EF]\b", r"\bNL[PQ]\b", r"\bOC[RB]\b"]:
+                # Sensible à la casse
+                corrected = re.sub(pattern, replacement, corrected)
+            else:
+                # Ignorer la casse pour le vocabulaire commun et les librairies
+                corrected = re.sub(pattern, replacement, corrected, flags=re.IGNORECASE)
 
         return corrected
 

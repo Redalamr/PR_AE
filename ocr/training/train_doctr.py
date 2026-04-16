@@ -134,12 +134,44 @@ def train_doctr(
             num_batches = 0
             for batch in train_loader:
                 optimizer.zero_grad()
-                # Note: boucle d'entraînement simplifiée
-                # En production, utiliser doctr.utils.trainer
+                
+                # Conversion des données pour docTR
+                # Selon les transforms, images peut être un tenseur ou une liste
+                if isinstance(batch["image"], torch.Tensor):
+                    images = batch["image"].to(device)
+                else:
+                    images = [img.to(device) for img in batch["image"]]
+                labels = batch["label"]
+                
+                # Forward pass qui calcule la loss (CTC) en interne si les cibles sont fournies
+                out = model(images, target=labels)
+                loss = out["loss"]
+                
+                loss.backward()
+                optimizer.step()
+                
+                train_loss += loss.item()
                 num_batches += 1
+
+            train_loss /= max(1, num_batches)
 
             model.eval()
             val_loss = 0.0
+            val_batches = 0
+            
+            with torch.no_grad():
+                for batch in val_loader:
+                    if isinstance(batch["image"], torch.Tensor):
+                        images = batch["image"].to(device)
+                    else:
+                        images = [img.to(device) for img in batch["image"]]
+                    labels = batch["label"]
+                    
+                    out = model(images, target=labels)
+                    val_loss += out["loss"].item()
+                    val_batches += 1
+                    
+            val_loss /= max(1, val_batches)
 
             logger.info(f"Epoch [{epoch+1}/{epochs}] — Train: {train_loss:.4f}, Val: {val_loss:.4f}")
             mlflow.log_metrics({"train_loss": train_loss, "val_loss": val_loss}, step=epoch)

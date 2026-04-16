@@ -33,12 +33,16 @@ class TesseractEngine:
     def __init__(
         self, lang: str = config.TESSERACT_LANG,
         tesseract_config: str = config.TESSERACT_CONFIG,
-        tesseract_cmd: Optional[str] = None,
+        tesseract_cmd: Optional[str] = getattr(config, "TESSERACT_CMD", None),
     ):
         self.lang = lang
         self.config = tesseract_config
-        if tesseract_cmd:
-            pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+        
+        # S'assure que le chemin pointé est défini
+        active_cmd = tesseract_cmd or getattr(config, "TESSERACT_CMD", None)
+        if active_cmd:
+            pytesseract.pytesseract.tesseract_cmd = active_cmd
+            
         logger.info(f"TesseractEngine — lang={lang}")
 
     def recognize(self, block_image: np.ndarray) -> OCRResult:
@@ -46,16 +50,25 @@ class TesseractEngine:
         if len(block_image.shape) == 2:
             block_image = cv2.cvtColor(block_image, cv2.COLOR_GRAY2BGR)
 
-        text = pytesseract.image_to_string(
-            block_image, lang=self.lang, config=self.config
-        ).strip()
+        try:
+            text = pytesseract.image_to_string(
+                block_image, lang=self.lang, config=self.config
+            ).strip()
 
-        data = pytesseract.image_to_data(
-            block_image, lang=self.lang, config=self.config,
-            output_type=pytesseract.Output.DICT,
-        )
-        confidences = [int(c) for c in data["conf"] if str(c).isdigit() and int(c) > 0]
-        avg_conf = sum(confidences) / max(len(confidences), 1) / 100.0
+            data = pytesseract.image_to_data(
+                block_image, lang=self.lang, config=self.config,
+                output_type=pytesseract.Output.DICT,
+            )
+            confidences = [int(c) for c in data["conf"] if str(c).isdigit() and int(c) > 0]
+            avg_conf = sum(confidences) / max(len(confidences), 1) / 100.0
+        except pytesseract.TesseractNotFoundError:
+            logger.warning("Tesseract non trouvé. Renvoie d'un faux résultat pour ne pas crasher la démo.")
+            text = "[Tesseract non installé]"
+            avg_conf = 0.0
+        except Exception as e:
+            logger.error(f"Erreur Tesseract: {e}")
+            text = f"[Erreur Tesseract: {e}]"
+            avg_conf = 0.0
 
         return OCRResult(text=text, confidence=avg_conf)
 

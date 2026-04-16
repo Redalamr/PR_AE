@@ -39,3 +39,5 @@ mlruns/
 
 # Jupyter
 .ipynb_checkpoints/
+ANALYSE_ET_PLAN_ACTION.md
+taches_plan_action/

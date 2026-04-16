@@ -312,6 +312,7 @@ class PipelineResult:
     figure_block_count: int
     corrections_count: int
     binary_image: np.ndarray
+    ocr_avg_confidence: float
 
 
 def run_pipeline(
@@ -378,6 +379,7 @@ def run_pipeline(
     text_parts = []
     latex_formulas = []
     figure_images = []
+    ocr_confidences = []
 
     for block in blocks:
         if block.image is None:
@@ -392,6 +394,8 @@ def run_pipeline(
         elif block.label == "text":
             result = ocr_engine.recognize(block.image)
             text_parts.append(result.text)
+            if hasattr(result, "confidence"):
+                ocr_confidences.append(result.confidence)
 
         # Route : Bloc figure → on garde l'image
         elif block.label == "figure":
@@ -414,6 +418,7 @@ def run_pipeline(
     text_count = sum(1 for b in blocks if b.label == "text")
     math_count = sum(1 for b in blocks if is_math_block(b.label))
     fig_count = sum(1 for b in blocks if b.label == "figure")
+    avg_conf = sum(ocr_confidences) / len(ocr_confidences) if ocr_confidences else 0.0
 
     return PipelineResult(
         raw_text=raw_text,
@@ -428,6 +433,7 @@ def run_pipeline(
         figure_block_count=fig_count,
         corrections_count=corrections_count,
         binary_image=binary,
+        ocr_avg_confidence=avg_conf,
     )
 
 
@@ -447,10 +453,14 @@ with st.sidebar:
         index=0,
         help="Tesseract = rapide, docTR = précis (fine-tuné), TrOCR = DL pré-entraîné",
     )
+    if ocr_engine_type == "doctr":
+        st.info("ℹ️ Fine-tuning en cours — version pré-entraînée utilisée")
 
     # ── Classifieur ──
     st.markdown("### 🏷️ Classifieur")
     use_cnn = st.checkbox("Utiliser le CNN (sinon heuristique)", value=False)
+    if use_cnn:
+        st.warning("⚠️ Modèle CNN non entraîné — utilise ImageNet par défaut")
 
     # ── Prétraitement ──
     st.markdown("### 🖼️ Prétraitement")
@@ -523,6 +533,21 @@ with col_upload:
         type=["jpg", "jpeg", "png", "bmp", "tiff"],
         help="Formats acceptés : JPG, PNG, BMP, TIFF",
     )
+    
+    if st.button("📸 Utiliser une image de démonstration"):
+        st.session_state["use_demo_image"] = True
+        
+    if uploaded_file is not None:
+        st.session_state["use_demo_image"] = False
+
+if st.session_state.get("use_demo_image", False) and uploaded_file is None:
+    demo_path = Path("demo_images/02_moyenne.png")
+    if demo_path.exists():
+        with open(demo_path, "rb") as f:
+            file_bytes = f.read()
+        uploaded_file = io.BytesIO(file_bytes)
+        uploaded_file.name = "02_moyenne.png"
+        uploaded_file.getvalue = lambda: file_bytes
 
 with col_info:
     if uploaded_file:
@@ -659,6 +684,10 @@ if uploaded_file is not None:
             <div class="metric-card">
                 <div class="value">{result.corrections_count}</div>
                 <div class="label">Corrections LLM</div>
+            </div>
+            <div class="metric-card">
+                <div class="value">{result.ocr_avg_confidence:.1%}</div>
+                <div class="label">Confiance OCR</div>
             </div>
         </div>
         """, unsafe_allow_html=True)

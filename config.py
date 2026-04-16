@@ -84,6 +84,7 @@ TROCR_MODEL_NAME = "microsoft/trocr-base-handwritten"
 
 TESSERACT_LANG = "eng"
 TESSERACT_CONFIG = "--oem 3 --psm 6"
+TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 DOCTR_TRAIN_BATCH_SIZE = 16
 DOCTR_TRAIN_LR = 1e-4

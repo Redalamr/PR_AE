@@ -32,6 +32,7 @@ from dataclasses import dataclass
 # Imports du pipeline V0 existant
 # ────────────────────────────────────────────
 import config
+from pipeline_result import PipelineResult
 from preprocessing.pipeline import PreprocessingPipeline
 from preprocessing.enhance import BinarizationMethod
 from layout.block_detector import BlockDetector, Block
@@ -305,22 +306,8 @@ def generate_pdf_bytes(
 # Pipeline de traitement principal
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@dataclass
-class PipelineResult:
-    """Résultat complet du pipeline V2."""
-    raw_text: str
-    corrected_text: str
-    latex_formulas: List[str]
-    figure_images: List[np.ndarray]
-    blocks: List[Block]
-    processing_time: float
-    block_count: int
-    text_block_count: int
-    math_block_count: int
-    figure_block_count: int
-    corrections_count: int
-    binary_image: np.ndarray
-    ocr_avg_confidence: float
+# PipelineResult est importé depuis pipeline_result.py
+# (partagé avec layout/ai_pipeline_orchestrator.py pour éviter les imports circulaires)
 
 
 def run_pipeline(
@@ -450,7 +437,7 @@ def run_pipeline(
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 with st.sidebar:
-    if st.button("🗑️ Réinitialiser", use_container_width=True):
+    if st.button("🗑️ Réinitialiser", width="stretch"):
         st.session_state.clear()
         st.rerun()
 
@@ -467,6 +454,35 @@ with st.sidebar:
     )
     if ocr_engine_type == "doctr":
         st.info("ℹ️ Fine-tuning en cours — version pré-entraînée utilisée")
+
+    # ── Méthode de Zonage (V3) ──
+    st.markdown("### 🔬 Méthode de Zonage")
+    zonage_method = st.selectbox(
+        "Choisir le pipeline",
+        options=["Classique (OpenCV)", "IA (YOLO-World + Surya)"],
+        index=0,
+        key="zonage_method",
+        help=(
+            "Classique = pipeline V2 existant (OpenCV + heuristiques).\n"
+            "IA = détection YOLO-World + zonage Surya via API HuggingFace."
+        ),
+    )
+
+    hf_api_key = None
+    if zonage_method == "IA (YOLO-World + Surya)":
+        st.info(
+            "ℹ️ Ce pipeline appelle des APIs distantes.\n"
+            "Une clé HuggingFace gratuite est requise pour YOLO-World.",
+            icon="🌐",
+        )
+        hf_api_key = st.text_input(
+            "🔑 Token HuggingFace (hf_...)",
+            type="password",
+            key="hf_api_key",
+            help="Créer un token sur https://huggingface.co/settings/tokens (Read access suffit)",
+        )
+        if not hf_api_key:
+            st.warning("⚠️ Sans token, l'étape YOLO-World sera ignorée et l'image entière sera envoyée à Surya.")
 
     # ── Classifieur ──
     st.markdown("### 🏷️ Classifieur")
@@ -595,7 +611,7 @@ if uploaded_file is not None:
 
     col_orig, col_preview = st.columns(2)
     with col_orig:
-        st.image(cv2_to_pil(image), caption="Image uploadée", use_container_width=True)
+        st.image(cv2_to_pil(image), caption="Image uploadée", width="stretch")
 
     with col_preview:
         # Aperçu rapide des dimensions
@@ -629,7 +645,7 @@ if uploaded_file is not None:
     with col_btn:
         process_btn = st.button(
             "🚀 Lancer le traitement OCR",
-            use_container_width=True,
+            width="stretch",
             type="primary",
         )
 
@@ -638,20 +654,45 @@ if uploaded_file is not None:
         progress_bar = st.progress(0, text="Initialisation du pipeline…")
 
         with st.spinner("⏳ Traitement en cours…"):
-            progress_bar.progress(10, text="Prétraitement de l'image…")
+            # ── Branchement selon la méthode choisie ──
+            if st.session_state.get("zonage_method", "Classique (OpenCV)") == "IA (YOLO-World + Surya)":
+                # ── Pipeline V3 : IA (YOLO + Surya) ──
+                st.info(
+                    "ℹ️ Premier appel aux APIs distantes : prévoir 30-60 secondes "
+                    "si les modèles sont en veille sur HuggingFace.",
+                    icon="⏳",
+                )
+                progress_bar.progress(5, text="Détection du tableau (YOLO-World)…")
 
-            result = run_pipeline(
-                image=image,
-                ocr_engine_type=ocr_engine_type,
-                latex_backend=latex_backend,
-                llm_provider=llm_provider,
-                llm_api_key=llm_api_key,
-                binarization=binarization,
-                skip_perspective=skip_perspective,
-                use_cnn=use_cnn,
-                enable_llm=enable_llm,
-                enable_latex=enable_latex,
-            )
+                from layout.ai_pipeline_orchestrator import run_ai_pipeline
+
+                result = run_ai_pipeline(
+                    image=image,
+                    hf_api_key=st.session_state.get("hf_api_key", None),
+                    ocr_engine_type=ocr_engine_type,
+                    latex_backend=latex_backend,
+                    llm_provider=llm_provider,
+                    llm_api_key=llm_api_key,
+                    enable_llm=enable_llm,
+                    enable_latex=enable_latex,
+                    progress_callback=lambda p, t: progress_bar.progress(p, text=t),
+                )
+            else:
+                # ── Pipeline V2 : Classique (inchangé) ──
+                progress_bar.progress(10, text="Prétraitement de l'image…")
+
+                result = run_pipeline(
+                    image=image,
+                    ocr_engine_type=ocr_engine_type,
+                    latex_backend=latex_backend,
+                    llm_provider=llm_provider,
+                    llm_api_key=llm_api_key,
+                    binarization=binarization,
+                    skip_perspective=skip_perspective,
+                    use_cnn=use_cnn,
+                    enable_llm=enable_llm,
+                    enable_latex=enable_latex,
+                )
 
             progress_bar.progress(100, text="✅ Traitement terminé !")
 
@@ -711,13 +752,13 @@ if uploaded_file is not None:
 
         with col_bin:
             st.markdown("#### 🔲 Image Binarisée")
-            st.image(result.binary_image, caption="Sortie du prétraitement", use_container_width=True)
+            st.image(result.binary_image, caption="Sortie du prétraitement", width="stretch")
 
         with col_blocks:
             st.markdown("#### 🧩 Blocs Détectés")
             # Visualisation des blocs
             vis = get_block_detector().visualize(image, result.blocks)
-            st.image(cv2_to_pil(vis), caption=f"{result.block_count} blocs", use_container_width=True)
+            st.image(cv2_to_pil(vis), caption=f"{result.block_count} blocs", width="stretch")
 
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -788,7 +829,7 @@ if uploaded_file is not None:
                     st.image(
                         cv2_to_pil(fig_img),
                         caption=f"Figure {i+1}",
-                        use_container_width=True,
+                        width="stretch",
                     )
 
         # ── Export PDF ──
@@ -826,7 +867,7 @@ if uploaded_file is not None:
                     data=pdf_bytes,
                     file_name=f"tableau_blanc_{timestamp}.pdf",
                     mime="application/pdf",
-                    use_container_width=True,
+                    width="stretch",
                     type="primary",
                 )
             except Exception as e:

@@ -164,3 +164,36 @@ BLOCK_CLASSES_V2_INV = {"text": 0, "figure": 1, "equation": 2}
 # ============================================
 STREAMLIT_MAX_UPLOAD_MB = 20
 STREAMLIT_DEFAULT_BINARIZATION = "adaptive_clahe"
+
+# ============================================
+# V3 — PIPELINE IA (YOLO-World + Surya)
+# ============================================
+
+# Endpoint HuggingFace Inference API (Zero-Shot Object Detection)
+# OWL-ViT est le plus fiable pour la détection zero-shot "whiteboard"
+HF_INFERENCE_API_URL = "https://api-inference.huggingface.co/models/google/owlvit-base-patch32"
+
+# Prompt de détection du tableau (peut être enrichi)
+YOLO_WHITEBOARD_LABELS = ["whiteboard", "blackboard", "school whiteboard"]
+
+# Seuil de confiance minimum pour accepter une détection YOLO
+YOLO_CONFIDENCE_THRESHOLD = 0.20
+
+# Space Gradio Surya (public, pas de token requis)
+SURYA_SPACE_ID = "xiaoyao9184/surya"
+SURYA_API_NAME = "/layout_det_img"
+
+# Timeout (secondes) pour les appels API distants
+API_CALL_TIMEOUT = 60
+
+# Labels Surya reconnus comme "texte" → routage vers OCR
+SURYA_TEXT_LABELS = {"Text", "TextInlineMath", "Caption", "Footnote", "SectionHeader", "Title", "ListItem"}
+
+# Labels Surya reconnus comme "mathématiques" → routage vers LaTeX-OCR
+SURYA_MATH_LABELS = {"Formula", "Equation", "Math"}
+
+# Labels Surya reconnus comme "figure" → sauvegarde image
+SURYA_FIGURE_LABELS = {"Figure", "Image", "Picture"}
+
+# Padding (pixels) appliqué lors du crop de chaque bloc Surya
+SURYA_BLOCK_PADDING = 8

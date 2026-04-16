@@ -49,3 +49,8 @@ seaborn>=0.12.0
 # --- Utilities ---
 tqdm>=4.65.0
 pyyaml>=6.0
+
+# --- V3 : Pipeline IA (YOLO-World + Surya) ---
+gradio_client>=0.16.0      # Client pour les Spaces Gradio (Surya)
+requests>=2.31.0           # Appels HuggingFace Inference API
+huggingface_hub>=0.20.0    # Authentification HF token

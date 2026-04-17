@@ -104,8 +104,15 @@ def train_doctr(
         train_dataset.entries.sort(key=lambda e: len(e["label"]))
         logger.info("Curriculum learning activé")
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=not curriculum, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
+    # Fix: DataLoader batch collation custom function
+    def collate_fn(batch):
+        images = [cv2.resize(b["image"], (128, 32)) for b in batch]  # taille fixe docTR
+        images = [torch.from_numpy(img.transpose(2,0,1)).float() / 255.0 for img in images]
+        labels = [b["label"] for b in batch]
+        return {"image": torch.stack(images), "label": labels}
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=not curriculum, num_workers=2, collate_fn=collate_fn)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2, collate_fn=collate_fn)
 
     optimizer = torch.optim.Adam(
         filter(lambda p: p.requires_grad, model.parameters()), lr=lr

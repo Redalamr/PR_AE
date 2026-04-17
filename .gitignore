@@ -10,6 +10,7 @@ build/
 # Virtual env
 venv/
 .env/
+.env
 
 # IDE
 .vscode/
@@ -49,3 +50,8 @@ GUIDE_INTERFACE.md
 Claud_edits.md
 plan_actuelele.md
 plan_integration_v3.md
+ANALYSE_OCR_MOTEURS_V4.md
+CORRECTIFS_V4.md
+DIAGNOSTIC_COMPLET_V4.md
+Diagnostic et Solutions pour l'Application Streamlit PR_AE_V5.md
+Guide de Correction pour le Projet PR_AE (pour IA Externe).md

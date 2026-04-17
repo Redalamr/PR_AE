@@ -6,6 +6,15 @@ Tous les chemins, hyperparamètres et constantes sont centralisés ici.
 import os
 from pathlib import Path
 
+# Chargement basique des variables d'environnement (si .env présent localement)
+_env_path = Path(__file__).resolve().parent / ".env"
+if _env_path.exists():
+    with open(_env_path, "r", encoding="utf-8") as _f:
+        for _line in _f:
+            if _line.strip() and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.strip().split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 # ============================================
 # CHEMINS PROJET
 # ============================================
@@ -31,22 +40,22 @@ CAPTURE_HEIGHT = 1080
 # ============================================
 # PRÉTRAITEMENT
 # ============================================
-CLAHE_CLIP_LIMIT = 2.0
+CLAHE_CLIP_LIMIT = 1.5
 CLAHE_TILE_SIZE = (8, 8)
 
-OTSU_BLUR_KSIZE = 5
-ADAPTIVE_BLOCK_SIZE = 21
-ADAPTIVE_C = 8
+OTSU_BLUR_KSIZE = 7
+ADAPTIVE_BLOCK_SIZE = 35
+ADAPTIVE_C = 10
 
-MORPH_KERNEL_SIZE = (1, 1)
+MORPH_KERNEL_SIZE = (3, 3)
 MORPH_OPEN_ITER = 1
 MORPH_CLOSE_ITER = 1
-SUBTRACT_BACKGROUND = False
+SUBTRACT_BACKGROUND = True
 
-CANNY_LOW = 50
-CANNY_HIGH = 150
-CORNER_APPROX_EPSILON = 0.02
-MIN_CONTOUR_AREA_RATIO = 0.05
+CANNY_LOW = 30
+CANNY_HIGH = 90
+CORNER_APPROX_EPSILON = 0.03
+MIN_CONTOUR_AREA_RATIO = 0.02
 
 # ============================================
 # DÉTECTION DE BLOCS
@@ -85,7 +94,17 @@ TROCR_MODEL_NAME = "microsoft/trocr-base-handwritten"
 
 TESSERACT_LANG = "eng"
 TESSERACT_CONFIG = "--oem 3 --psm 11"
-TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+import sys as _sys
+
+# ── Chemin Tesseract selon l'OS ──
+if _sys.platform == "win32":
+    TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+elif _sys.platform == "darwin":
+    # Homebrew : brew install tesseract
+    TESSERACT_CMD = "/usr/local/bin/tesseract"
+else:
+    # Linux : sudo apt-get install tesseract-ocr
+    TESSERACT_CMD = "tesseract"
 
 DOCTR_TRAIN_BATCH_SIZE = 16
 DOCTR_TRAIN_LR = 1e-4
@@ -169,13 +188,17 @@ STREAMLIT_DEFAULT_BINARIZATION = "adaptive_clahe"
 # ============================================
 # V3 — PIPELINE IA (YOLO-World + Surya)
 # ============================================
+HF_API_KEY_DEFAULT = os.getenv("HF_API_KEY", "")
 
-# Endpoint HuggingFace Inference API (Zero-Shot Object Detection)
-# OWL-ViT est le plus fiable pour la détection zero-shot "whiteboard"
-HF_INFERENCE_API_URL = "https://api-inference.huggingface.co/models/google/owlvit-base-patch32"
+# ID du modèle pour la détection de tableaux (Inference API)
+# facebook/detr-resnet-50 est un modèle standard robuste supporté par l'API
+YOLO_WORLD_MODEL_ID = "facebook/detr-resnet-50"
 
-# Prompt de détection du tableau (peut être enrichi)
-YOLO_WHITEBOARD_LABELS = ["whiteboard", "blackboard", "school whiteboard"]
+# Endpoint HuggingFace Inference API
+HF_INFERENCE_API_URL = f"https://api-inference.huggingface.co/models/{YOLO_WORLD_MODEL_ID}"
+
+# Labels de détection (DETR utilise les classes COCO, 'dining table' est souvent le plus proche pour un tableau blanc)
+YOLO_WHITEBOARD_LABELS = ["dining table", "laptop", "tv"]
 
 # Seuil de confiance minimum pour accepter une détection YOLO
 YOLO_CONFIDENCE_THRESHOLD = 0.20
@@ -198,3 +221,16 @@ SURYA_FIGURE_LABELS = {"Figure", "Image", "Picture"}
 
 # Padding (pixels) appliqué lors du crop de chaque bloc Surya
 SURYA_BLOCK_PADDING = 8
+
+# ============================================
+# V4 — PIPELINE TOUT-EN-UN (Gemini 2.5)
+# ============================================
+GEMINI_API_KEY_DEFAULT = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL_ID = "gemini-2.5-flash"
+GEMINI_SYSTEM_PROMPT = """Tu es un expert en OCR avec une spécialisation en mathématiques et structuration de document. 
+Ta tâche est d'analyser l'image de tableau blanc fournie.
+Extrais tout le texte et les formules mathématiques visibles. 
+Mets les formules mathématiques en format LaTeX entourées de symboles '$' ou '$$'.
+Structure la sortie en syntaxe Markdown lisible, avec des titres, des listes si pertinents, et transcris fidèlement la logique du document.
+Si des figures de dessins, graphes ou schémas sont présents, ajoute une courte balise descriptive du genre : [FIGURE: description pertinente].
+Ne rajoute pas de textes superflus, ta réponse entière doit servir de transcription finale."""

@@ -34,44 +34,41 @@ class HeuristicClassifier:
         if h == 0 or w == 0:
             return ("unknown", 0.0)
 
-        # Normaliser en uint8 si nécessaire
         img = block_image if block_image.dtype == np.uint8 else block_image.astype(np.uint8)
 
         total_pixels = h * w
-        # Pixels d'écriture (blancs sur image binaire inversée)
         ink_pixels = int(np.count_nonzero(img))
         ink_density = ink_pixels / max(total_pixels, 1)
-
         aspect_ratio = w / max(h, 1)
 
-        # Projection horizontale : somme des pixels blancs par ligne
+        # ── NOUVEAU : détection équation AVANT texte/figure ──
+        area = h * w
+        # Équation : zone petite, aspect ratio modéré à étendu (une longue ligne), densité intermédiaire
+        if (area < 80000 and 0.5 < aspect_ratio < 12.0 and 0.05 < ink_density < 0.45):
+            # Vérifier qu'il y a des "îlots" isolés (lettres/symboles séparés)
+            num_labels, _ = cv2.connectedComponents(img)
+            density_ratio = num_labels / max(area / 500, 1)
+            if density_ratio > 0.2:  # beaucoup de composantes connexes = symboles math
+                return ("equation", 0.70)
+
+        # ── Code existant pour texte / figure ──
         h_proj = np.sum(img > 0, axis=1).astype(float)
         mean_proj = float(np.mean(h_proj)) if h_proj.size > 0 else 0.0
 
-        # Coefficient de variation des lignes non-vides
         non_zero_lines = h_proj[h_proj > 0]
         cv_lines = (float(np.std(non_zero_lines)) / max(float(np.mean(non_zero_lines)), 1.0)
                     if len(non_zero_lines) > 1 else 1.0)
 
-        # Nombre de "runs" de lignes actives (groupes de lignes avec pixels)
         line_active = (h_proj > (mean_proj * 0.1)).astype(int)
-        transitions = int(np.sum(np.diff(line_active) > 0))  # passages 0→1
+        transitions = int(np.sum(np.diff(line_active) > 0))
 
         score = 0.0
-
-        # Critère 1 : aspect large → favorable au texte
         if aspect_ratio > self.aspect_ratio_threshold:
             score += 0.30
-
-        # Critère 2 : densité dans la plage texte manuscrit (5%–60%)
         if 0.05 < ink_density < 0.60:
             score += 0.25
-
-        # Critère 3 : faible variation entre lignes → texte régulier
         if cv_lines < 1.0:
             score += 0.25
-
-        # Critère 4 : plusieurs runs de lignes actives → plusieurs lignes de texte
         if transitions >= 2:
             score += 0.20
 

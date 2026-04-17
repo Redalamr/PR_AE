@@ -47,7 +47,52 @@ class TrOCREngine:
         logger.info(f"TrOCREngine prêt sur {self.device}")
 
     def recognize(self, block_image: np.ndarray) -> OCRResult:
-        """Reconnaît le texte dans une image de bloc."""
+        """Reconnaît le texte — découpe en lignes si bloc multi-lignes."""
+        lines = self._split_into_lines(block_image)
+        
+        if len(lines) <= 1:
+            return self._recognize_single(block_image)
+        
+        # Reconnaître chaque ligne séparément
+        texts = []
+        confidences = []
+        for line_img in lines:
+            result = self._recognize_single(line_img)
+            if result.text.strip():
+                texts.append(result.text)
+                confidences.append(result.confidence)
+        
+        return OCRResult(
+            text="\n".join(texts),
+            confidence=sum(confidences)/max(len(confidences), 1)
+        )
+
+    def _split_into_lines(self, image: np.ndarray) -> list:
+        """Découpe un bloc en lignes individuelles."""
+        import cv2
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape)==3 else image
+        # Projection horizontale
+        h_proj = np.sum(gray < 128, axis=1)  # pixels foncés par ligne
+        # Trouver les séparateurs (lignes vides)
+        threshold = h_proj.max() * 0.1
+        in_line = h_proj > threshold
+        
+        lines = []
+        start = None
+        for i, active in enumerate(in_line):
+            if active and start is None:
+                start = i
+            elif not active and start is not None:
+                if i - start > 5:  # minimum 5px de hauteur
+                    lines.append(image[start:i, :])
+                start = None
+        if start is not None:
+            lines.append(image[start:, :])
+        
+        return lines if lines else [image]
+
+    def _recognize_single(self, block_image: np.ndarray) -> OCRResult:
+        """Reconnaissance TrOCR sur une image."""
         if len(block_image.shape) == 2:
             block_image = cv2.cvtColor(block_image, cv2.COLOR_GRAY2RGB)
         else:

@@ -54,3 +54,9 @@ pyyaml>=6.0
 gradio_client>=0.16.0      # Client pour les Spaces Gradio (Surya)
 requests>=2.31.0           # Appels HuggingFace Inference API
 huggingface_hub>=0.20.0    # Authentification HF token
+
+# --- V3 : Pipeline IA (Gemini Flash) ---
+google-generativeai>=0.7.0 # Intégration Gemini 2.5 Flash (Tout-en-un)
+
+# --- Monitoring système ---
+psutil>=5.9.0              # Vérification RAM avant chargement des modèles

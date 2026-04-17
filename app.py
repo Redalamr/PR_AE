@@ -383,12 +383,12 @@ def run_pipeline(
             continue
 
         # Route : Bloc mathématique → LaTeX-OCR
-        if enable_latex and is_math_block(block.label):
+        if enable_latex and (is_math_block(block.label) or block.label == "equation"):
             result = latex_engine.recognize(block.image)
             latex_formulas.append(result.text)
 
         # Route : Bloc texte → OCR classique
-        elif block.label == "text":
+        elif block.label in ("text", "unknown"):
             result = ocr_engine.recognize(block.image)
             text_parts.append(result.text)
             if hasattr(result, "confidence"):
@@ -439,109 +439,127 @@ def run_pipeline(
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 with st.sidebar:
-    if st.button("🗑️ Réinitialiser", width="stretch"):
+    if st.button("🗑️ Réinitialiser", use_container_width=True):
         st.session_state.clear()
         st.rerun()
 
     st.markdown("## ⚙️ Configuration")
-    st.markdown("---")
 
-    # ── Moteur OCR ──
-    st.markdown("### 🔤 Moteur OCR")
-    ocr_engine_type = st.selectbox(
-        "Moteur principal",
-        options=["tesseract", "doctr", "trocr"],
-        index=0,
-        help="Tesseract = rapide, docTR = précis (fine-tuné), TrOCR = DL pré-entraîné",
-    )
-    if ocr_engine_type == "doctr":
-        st.info("ℹ️ Fine-tuning en cours — version pré-entraînée utilisée")
-
-    # ── Méthode de Zonage (V3) ──
-    st.markdown("### 🔬 Méthode de Zonage")
+    # ═══════════════════════════════════════
+    # BLOC 1 — Pipeline (choix principal)
+    # ═══════════════════════════════════════
+    st.markdown("### 🚀 Pipeline de détection")
     zonage_method = st.selectbox(
-        "Choisir le pipeline",
-        options=["Classique (OpenCV)", "IA (YOLO-World + Surya)"],
-        index=0,
+        "Méthode de zonage",
+        options=["Classique (OpenCV)", "IA (YOLO-World + Surya)", "IA (Gemini Tout-en-un)"],
         key="zonage_method",
-        help=(
-            "Classique = pipeline V2 existant (OpenCV + heuristiques).\n"
-            "IA = détection YOLO-World + zonage Surya via API HuggingFace."
-        ),
+        help="Classique = local. YOLO+Surya = distantes. Gemini = Ultra-rapide complet.",
     )
 
     hf_api_key = None
-    if zonage_method == "IA (YOLO-World + Surya)":
-        st.info(
-            "ℹ️ Ce pipeline appelle des APIs distantes.\n"
-            "Une clé HuggingFace gratuite est requise pour YOLO-World.",
-            icon="🌐",
-        )
-        hf_api_key = st.text_input(
-            "🔑 Token HuggingFace (hf_...)",
-            type="password",
-            key="hf_api_key",
-            help="Créer un token sur https://huggingface.co/settings/tokens (Read access suffit)",
-        )
-        if not hf_api_key:
-            st.warning("⚠️ Sans token, l'étape YOLO-World sera ignorée et l'image entière sera envoyée à Surya.")
-
-    # ── Classifieur ──
-    st.markdown("### 🏷️ Classifieur")
-    use_cnn = st.checkbox("Utiliser le CNN (sinon heuristique)", value=False)
-    if use_cnn:
-        st.warning("⚠️ Modèle CNN non entraîné — utilise ImageNet par défaut")
-
-    # ── Prétraitement ──
-    st.markdown("### 🖼️ Prétraitement")
-    binarization = st.selectbox(
-        "Binarisation",
-        options=["adaptive_clahe", "adaptive", "otsu_clahe", "otsu"],
-        index=0,
-    )
-    subtract_background = st.checkbox(
-        "Soustrait le fond (filtre médian)", 
-        value=config.SUBTRACT_BACKGROUND,
-        help="Génère une estimation du fond par filtre médian et le soustrait. Aide à éliminer reflets et ombres."
-    )
-    skip_perspective = st.checkbox("Ignorer la correction de perspective", value=False)
-
-    st.markdown("---")
-
-    # ── LaTeX-OCR (V2) ──
-    st.markdown("### 📐 LaTeX-OCR")
-    enable_latex = st.checkbox("Activer LaTeX-OCR (formules)", value=True)
-    latex_backend = st.selectbox(
-        "Backend",
-        options=["simulate", "pix2tex", "nougat"],
-        index=0,
-        help="simulate = test sans modèle, pix2tex = formules isolées, nougat = pages complètes",
-    )
+    gemini_api_key = None
+    if zonage_method == "IA (Gemini Tout-en-un)":
+        with st.expander("⚡ Options Gemini", expanded=True):
+            st.success("🤖 Le modèle analysera l'image globalement en une seule étape.")
+            gemini_api_key = st.text_input(
+                "Clé API Gemini (optionnel)",
+                value=config.GEMINI_API_KEY_DEFAULT,
+                type="password",
+                key="gemini_api_key",
+                help="Obtenez une clé sur Google AI Studio",
+            )
+    elif zonage_method == "IA (YOLO-World + Surya)":
+        with st.expander("🌐 Options Pipeline IA", expanded=True):
+            st.info("⚠️ Requiert une connexion internet et peut prendre 30-60s au premier appel.")
+            hf_api_key = st.text_input(
+                "Token HuggingFace",
+                value=config.HF_API_KEY_DEFAULT,
+                type="password",
+                key="hf_api_key",
+                help="Token Read sur https://huggingface.co/settings/tokens",
+            )
+    else:
+        with st.expander("🔧 Options Pipeline Classique", expanded=True):
+            binarization = st.selectbox(
+                "Binarisation",
+                options=["adaptive_clahe", "adaptive", "otsu_clahe", "otsu"],
+                index=0,
+                help="adaptive_clahe = recommandé pour les tableaux blancs",
+            )
+            subtract_background = st.checkbox(
+                "Soustraction fond",
+                value=config.SUBTRACT_BACKGROUND,
+                help="Utile si le fond du tableau est inégal ou avec reflets",
+            )
+            skip_perspective = st.checkbox("Ignorer la correction de perspective", value=True)
+            use_cnn = st.checkbox(
+                "Classifieur CNN (expérimental)",
+                value=False,
+                help="⚠️ Modèle non entraîné — utilise ImageNet par défaut",
+            )
+            if use_cnn:
+                st.warning("⚠️ CNN non entraîné sur vos données")
 
     st.markdown("---")
 
-    # ── Correction LLM (V2) ──
-    st.markdown("### 🤖 Correction LLM")
-    enable_llm = st.checkbox("Activer la correction post-OCR", value=True)
-    llm_provider = st.selectbox(
-        "Provider",
-        options=["simulate", "openai", "anthropic"],
+    # ═══════════════════════════════════════
+    # BLOC 2 — Moteur OCR
+    # ═══════════════════════════════════════
+    st.markdown("### 🔤 Reconnaissance de texte")
+    ocr_engine_type = st.selectbox(
+        "Moteur OCR",
+        options=["tesseract", "doctr", "trocr"],
         index=0,
-        help="simulate = regex offline, openai/anthropic = API cloud",
+        help="Tesseract = rapide (recommandé). docTR / TrOCR = meilleur en manuscrit mais nécessitent ~2-3GB RAM.",
     )
 
-    llm_api_key = None
-    if llm_provider in ("openai", "anthropic"):
-        llm_api_key = st.text_input(
-            f"🔑 Clé API {llm_provider.title()}",
-            type="password",
-            help="Alternativement, exportez OPENAI_API_KEY ou ANTHROPIC_API_KEY",
+    # Avertissement RAM
+    if ocr_engine_type in ("trocr", "doctr"):
+        try:
+            import psutil
+            ram_gb = psutil.virtual_memory().available / (1024**3)
+            needed = 2.5 if ocr_engine_type == "trocr" else 1.5
+            if ram_gb < needed:
+                st.error(f"⛔ RAM disponible : {ram_gb:.1f}GB. {ocr_engine_type.upper()} nécessite ~{needed}GB. Risque de crash.")
+            else:
+                st.success(f"✓ RAM disponible : {ram_gb:.1f}GB (ok pour {ocr_engine_type.upper()})")
+        except ImportError:
+            st.warning(f"⚠️ Installez psutil pour vérifier la RAM : pip install psutil")
+
+    enable_latex = st.checkbox("Détecter les formules mathématiques", value=True)
+    if enable_latex:
+        latex_backend = st.selectbox(
+            "Backend LaTeX",
+            options=["simulate", "pix2tex"],
+            index=0,
+            help="simulate = test sans modèle (placeholder). pix2tex = vrai modèle LaTeX-OCR.",
         )
+    else:
+        latex_backend = "simulate"
+
+    st.markdown("---")
+
+    # ═══════════════════════════════════════
+    # BLOC 3 — Post-traitement LLM
+    # ═══════════════════════════════════════
+    with st.expander("🤖 Correction LLM (optionnel)"):
+        enable_llm = st.checkbox("Activer la correction post-OCR", value=True)
+        llm_provider = "simulate"
+        llm_api_key = None
+        if enable_llm:
+            llm_provider = st.selectbox(
+                "Provider",
+                options=["simulate", "openai", "anthropic"],
+                index=0,
+                help="simulate = correction offline par regex. openai/anthropic = API cloud (clé requise).",
+            )
+            if llm_provider in ("openai", "anthropic"):
+                llm_api_key = st.text_input(f"Clé API {llm_provider}", type="password")
 
     st.markdown("---")
     st.markdown(
         '<p style="text-align:center; color:#8b949e; font-size:0.75rem;">'
-        "Pipeline OCR Tableau Blanc · V2<br>ESAIP · IR4-S8 · 2025–2026"
+        "OCR Tableau Blanc · V3<br>ESAIP · IR4-S8 · 2025–2026"
         "</p>",
         unsafe_allow_html=True,
     )
@@ -662,7 +680,18 @@ if uploaded_file is not None:
 
         with st.spinner("⏳ Traitement en cours…"):
             # ── Branchement selon la méthode choisie ──
-            if st.session_state.get("zonage_method", "Classique (OpenCV)") == "IA (YOLO-World + Surya)":
+            method = st.session_state.get("zonage_method", "Classique (OpenCV)")
+            
+            if method == "IA (Gemini Tout-en-un)":
+                st.info("ℹ️ Analyse via Gemini 2.5 Flash en cours...", icon="🚀")
+                from layout.gemini_pipeline_orchestrator import run_gemini_pipeline
+                
+                result = run_gemini_pipeline(
+                    image=image,
+                    api_key=st.session_state.get("gemini_api_key", config.GEMINI_API_KEY_DEFAULT),
+                    progress_callback=lambda p, t: progress_bar.progress(p, text=t),
+                )
+            elif method == "IA (YOLO-World + Surya)":
                 # ── Pipeline V3 : IA (YOLO + Surya) ──
                 st.info(
                     "ℹ️ Premier appel aux APIs distantes : prévoir 30-60 secondes "

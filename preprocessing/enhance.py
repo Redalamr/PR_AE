@@ -86,9 +86,12 @@ class ImageEnhancer:
         else:
             gray = image.copy()
 
-        # ── NOUVEAU : masque pour ignorer les zones trop sombres (fond de salle) ──
-        # Les pixels < 40 de luminosité ne peuvent pas être du tableau blanc
-        bright_mask = (gray > 40).astype(np.uint8) * 255
+        # ── CORRECTION : masque pour ignorer les zones trop sombres (murs) sans effacer le texte ──
+        # On utilise une fermeture pour effacer le texte (fin) et estimer le vrai fond de la scène
+        kernel_bg = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 25))
+        bg_estimate = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel_bg)
+        # Les grandes zones qui restent sombres (< 40) sont les murs/cadres, pas le tableau blanc
+        bright_mask = (bg_estimate > 40).astype(np.uint8) * 255
 
         if self.subtract_background:
             # Estimation du fond avec un filtre médian très fort (noyau 51)
@@ -124,6 +127,22 @@ class ImageEnhancer:
     def apply_clahe(self, gray: np.ndarray) -> np.ndarray:
         """Applique CLAHE."""
         return self._clahe.apply(gray)
+
+    def enhance_for_whiteboard(self, gray: np.ndarray) -> np.ndarray:
+        """Pipeline spécialisé pour tableaux blancs avec marqueur."""
+        # Normalisation locale (utile pour les reflets)
+        clahe = self._clahe.apply(gray)
+        
+        # Binarisation adaptative avec paramètres adaptés aux marqueurs épais
+        block_size = max(51, int(gray.shape[0] * 0.05) | 1)  # 5% de la hauteur
+        binary = cv2.adaptiveThreshold(
+            clahe, 255,
+            cv2.ADAPTIVE_THRESH_MEAN_C,  # MEAN plutôt que GAUSSIAN pour marqueurs
+            cv2.THRESH_BINARY_INV,
+            block_size, 
+            15  # C plus grand pour mieux gérer les reflets
+        )
+        return binary
 
     def binarize_otsu(self, gray: np.ndarray) -> np.ndarray:
         """Binarisation par seuillage Otsu global."""

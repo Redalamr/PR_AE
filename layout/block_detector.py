@@ -63,8 +63,8 @@ class BlockDetector:
     def __init__(
         self,
         # Paramètres de dilatation morphologique (relatifs à l'image)
-        h_dilate_ratio: float = 0.015,  # ↓ était 0.04 → fusionnait tout
-        v_dilate_ratio: float = 0.004,  # ↓ était 0.008
+        h_dilate_ratio: float = 0.008,   # réduit ÷2
+        v_dilate_ratio: float = 0.002,   # réduit ÷2
         h_dilate_iter: int = 1,  
         v_dilate_iter: int = 1,
         # Filtres de taille (relatifs à l'image)
@@ -72,8 +72,8 @@ class BlockDetector:
         min_width_ratio: float = 0.01,  # 1% de la largeur
         min_height_ratio: float = 0.005,# 0.5% de la hauteur
         # Fusion résiduelle post-contours
-        merge_dist_y_ratio: float = 0.008,  # ↓ était 0.015
-        merge_dist_x_ratio: float = 0.015,  # ↓ était 0.03
+        merge_dist_y_ratio: float = 0.005,  # réduit
+        merge_dist_x_ratio: float = 0.008,  # réduit
         padding: int = 4,
     ):
         self.h_dilate_ratio = h_dilate_ratio
@@ -112,21 +112,19 @@ class BlockDetector:
         merge_dist_y = max(5, int(img_h      * self.merge_dist_y_ratio))
         merge_dist_x = max(10,int(img_w      * self.merge_dist_x_ratio))
 
-        # ── Noyaux de dilatation ──
-        kw = max(3, int(img_w * self.h_dilate_ratio))
-        kh = max(2, int(img_h * self.v_dilate_ratio))
-        # Forcer les dimensions impaires (requis par certains kernels OpenCV)
+        # ── Nouvelles valeurs adaptées pour ne PAS fusionner tout le tableau ──
+        # On veut des lignes séparées et des équations distinctes.
+        kw = max(3, int(img_w * 0.005))  # Dilatation H juste pour relier les mots (plus faible)
+        kh = max(3, int(img_h * 0.001))  # Dilatation V très faible pour ne pas lier les lignes
         kw = kw if kw % 2 == 1 else kw + 1
         kh = kh if kh % 2 == 1 else kh + 1
 
         logger.debug(
             f"BlockDetector — img={img_w}x{img_h}, "
-            f"kernel=({kw}x{kh}), min_area={min_area}, "
-            f"merge_y={merge_dist_y}, merge_x={merge_dist_x}"
+            f"kernel=({kw}x{kh}), min_area={min_area}"
         )
 
-        # ── Étape 1 : Dilatation morphologique pour fusionner les lettres ──
-        # Kernel large horizontal → fusionne les lettres d'un mot et les mots d'une ligne
+        # ── Étape 1 : Dilatation morphologique pour relier les mots d'une ligne ──
         h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kw, kh))
         dilated = cv2.dilate(binary_image, h_kernel, iterations=self.h_dilate_iter)
 
@@ -135,23 +133,17 @@ class BlockDetector:
             dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
 
-        raw_boxes = []
+        merged = []
         for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)
             if w * h >= min_area and w >= min_width and h >= min_height:
-                raw_boxes.append((x, y, w, h))
+                merged.append((x, y, w, h))
 
         logger.info(
-            f"Contours bruts : {len(contours)}, "
-            f"après filtrage taille : {len(raw_boxes)}"
+            f"Contours détectés et filtrés: {len(merged)}"
         )
-
-        if not raw_boxes:
+        if not merged:
             return []
-
-        # ── Étape 3 : Fusion résiduelle multi-passes ──
-        merged = self._merge_boxes_multipass(raw_boxes, merge_dist_y, merge_dist_x)
-        logger.info(f"Après fusion multi-passes : {len(merged)} blocs")
 
         # ── Étape 4 : Construction des Block avec crop sur l'image ORIGINALE ──
         blocks = []
@@ -288,18 +280,32 @@ class BlockDetector:
         vis = image.copy()
         if len(vis.shape) == 2:
             vis = cv2.cvtColor(vis, cv2.COLOR_GRAY2BGR)
+        
+        # BGR (Bleu, Vert, Rouge)
         colors = {
-            "text": (0, 220, 80),
-            "figure": (0, 80, 255),
+            "text": (0, 220, 80),      # Vert
+            "GRAPH": (0, 0, 255),      # Rouge
+            "LATEX": (0, 120, 255),    # Orange (en BGR)
             "unknown": (200, 200, 0),
         }
+        
         for block in blocks:
             x, y, w, h = block.bbox
-            color = colors.get(block.label, (200, 200, 0))
+            
+            # Mapping pour l'affichage tel que demandé par l'utilisateur
+            display_label = block.label
+            if block.label == "equation":
+                display_label = "LATEX"
+            elif block.label == "figure":
+                display_label = "GRAPH"
+
+            color = colors.get(display_label, colors["unknown"])
             cv2.rectangle(vis, (x, y), (x + w, y + h), color, 2)
-            label_text = f"{block.label} {block.confidence:.2f}"
+            
+            # On affiche juste le label sans la confiance pour que ça soit plus propre comme sur Paint
+            label_text = f"{display_label}"
             cv2.putText(
                 vis, label_text, (x, max(y - 6, 12)),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA,
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA,
             )
         return vis

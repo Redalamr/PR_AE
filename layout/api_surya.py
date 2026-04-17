@@ -228,8 +228,13 @@ def _parse_surya_json(
                 {"bbox": b, "label": l}
                 for b, l in zip(bboxes, labels)
             ]
+        # Nouvelle logique pour gérer le cas où raw_json est un dict avec 'label', 'value', '__type__'
+        # mais n'est pas un 'filepath' au sens strict.
+        elif "label" in raw_json and "value" in raw_json and "__type__" in raw_json:
+            logger.warning(f"Format JSON Surya inattendu mais contient 'label' et 'value' au niveau racine. Tentative de traitement comme un seul bloc. Clés : {list(raw_json.keys())}")
+            # Si c'est un seul bloc, on l'ajoute directement à la liste des items
+            items.append(raw_json)
         else:
-            # Tentative de parsing des clés disponibles
             logger.warning(f"Format JSON Surya inconnu. Clés : {list(raw_json.keys())}")
             return blocks
     elif isinstance(raw_json, list):

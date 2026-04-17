@@ -318,6 +318,7 @@ def run_pipeline(
     llm_api_key: Optional[str],
     binarization: str,
     skip_perspective: bool,
+    subtract_background: bool,
     use_cnn: bool,
     enable_llm: bool,
     enable_latex: bool,
@@ -335,6 +336,7 @@ def run_pipeline(
     preprocessing = PreprocessingPipeline(
         binarization_method=BinarizationMethod(binarization),
         skip_perspective=skip_perspective,
+        subtract_background=subtract_background,
     )
     binary = preprocessing.run(image)
 
@@ -497,7 +499,12 @@ with st.sidebar:
         options=["adaptive_clahe", "adaptive", "otsu_clahe", "otsu"],
         index=0,
     )
-    skip_perspective = st.checkbox("Ignorer la correction de perspective", value=True)
+    subtract_background = st.checkbox(
+        "Soustrait le fond (filtre médian)", 
+        value=config.SUBTRACT_BACKGROUND,
+        help="Génère une estimation du fond par filtre médian et le soustrait. Aide à éliminer reflets et ombres."
+    )
+    skip_perspective = st.checkbox("Ignorer la correction de perspective", value=False)
 
     st.markdown("---")
 
@@ -689,6 +696,7 @@ if uploaded_file is not None:
                     llm_api_key=llm_api_key,
                     binarization=binarization,
                     skip_perspective=skip_perspective,
+                    subtract_background=subtract_background,
                     use_cnn=use_cnn,
                     enable_llm=enable_llm,
                     enable_latex=enable_latex,
@@ -751,8 +759,8 @@ if uploaded_file is not None:
         col_bin, col_blocks = st.columns(2)
 
         with col_bin:
-            st.markdown("#### 🔲 Image Binarisée")
-            st.image(result.binary_image, caption="Sortie du prétraitement", width="stretch")
+            with st.expander("🔍 Debug — Image binarisée (développement)"):
+                st.image(result.binary_image, caption="Sortie du prétraitement", width="stretch")
 
         with col_blocks:
             st.markdown("#### 🧩 Blocs Détectés")

@@ -63,17 +63,17 @@ class BlockDetector:
     def __init__(
         self,
         # Paramètres de dilatation morphologique (relatifs à l'image)
-        h_dilate_ratio: float = 0.04,   # 4% de la largeur → noyau horizontal
-        v_dilate_ratio: float = 0.008,  # 0.8% de la hauteur → noyau vertical
-        h_dilate_iter: int = 2,
+        h_dilate_ratio: float = 0.015,  # ↓ était 0.04 → fusionnait tout
+        v_dilate_ratio: float = 0.004,  # ↓ était 0.008
+        h_dilate_iter: int = 1,  
         v_dilate_iter: int = 1,
         # Filtres de taille (relatifs à l'image)
         min_area_ratio: float = 0.0003, # 0.03% de la surface totale
         min_width_ratio: float = 0.01,  # 1% de la largeur
         min_height_ratio: float = 0.005,# 0.5% de la hauteur
         # Fusion résiduelle post-contours
-        merge_dist_y_ratio: float = 0.015,
-        merge_dist_x_ratio: float = 0.03,
+        merge_dist_y_ratio: float = 0.008,  # ↓ était 0.015
+        merge_dist_x_ratio: float = 0.015,  # ↓ était 0.03
         padding: int = 4,
     ):
         self.h_dilate_ratio = h_dilate_ratio

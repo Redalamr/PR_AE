@@ -34,9 +34,10 @@ class PreprocessingPipeline:
         self,
         binarization_method: BinarizationMethod = BinarizationMethod.ADAPTIVE_CLAHE,
         skip_perspective: bool = False,
+        subtract_background: bool = False,
     ):
         self.corrector = PerspectiveCorrector()
-        self.enhancer = ImageEnhancer(method=binarization_method)
+        self.enhancer = ImageEnhancer(method=binarization_method, subtract_background=subtract_background)
         self.skip_perspective = skip_perspective
         logger.info(
             f"PreprocessingPipeline — binarisation={binarization_method.value}, "
@@ -107,6 +108,7 @@ if __name__ == "__main__":
     parser.add_argument("--no-perspective", action="store_true")
     parser.add_argument("--method", choices=[m.value for m in BinarizationMethod],
                         default="adaptive_clahe")
+    parser.add_argument("--subtract-bg", action="store_true", help="Activer la soustraction du fond")
     args = parser.parse_args()
     img = cv2.imread(args.image)
     if img is None:
@@ -114,6 +116,7 @@ if __name__ == "__main__":
     pipeline = PreprocessingPipeline(
         binarization_method=BinarizationMethod(args.method),
         skip_perspective=args.no_perspective,
+        subtract_background=args.subtract_bg,
     )
     result = pipeline.run(img)
     cv2.imwrite("preprocessed.png", result)

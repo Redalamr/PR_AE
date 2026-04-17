@@ -68,9 +68,9 @@ class BlockDetector:
         h_dilate_iter: int = 1,  
         v_dilate_iter: int = 1,
         # Filtres de taille (relatifs à l'image)
-        min_area_ratio: float = 0.0003, # 0.03% de la surface totale
-        min_width_ratio: float = 0.01,  # 1% de la largeur
-        min_height_ratio: float = 0.005,# 0.5% de la hauteur
+        min_area_ratio: float = 0.002,    # ×6 plus strict
+        min_width_ratio: float = 0.03,    # bloc doit faire >=3% de la largeur
+        min_height_ratio: float = 0.012,
         # Fusion résiduelle post-contours
         merge_dist_y_ratio: float = 0.005,  # réduit
         merge_dist_x_ratio: float = 0.008,  # réduit
@@ -87,13 +87,14 @@ class BlockDetector:
         self.merge_dist_x_ratio = merge_dist_x_ratio
         self.padding = padding
 
-    def detect(self, binary_image: np.ndarray) -> List[Block]:
+    def detect(self, binary_image: np.ndarray, original_image: Optional[np.ndarray] = None) -> List[Block]:
         """
         Détecte les blocs dans une image binarisée.
 
         Args:
             binary_image: Image binarisée (H, W) uint8. Les pixels d'écriture
                           doivent être BLANCS (255) sur fond NOIR (0).
+            original_image: Image originale pour le recadrage (recommandé pour l'OCR).
 
         Returns:
             Liste de Block triés haut→bas, gauche→droite.
@@ -145,8 +146,10 @@ class BlockDetector:
         if not merged:
             return []
 
-        # ── Étape 4 : Construction des Block avec crop sur l'image ORIGINALE ──
+        # ── Étape 4 : Construction des Block avec crop sur l'image ORIGINALE ou BINAIRE ──
         blocks = []
+        source_img = original_image if original_image is not None else binary_image
+        
         for (x, y, w, h) in merged:
             x_pad = max(0, x - self.padding)
             y_pad = max(0, y - self.padding)
@@ -155,7 +158,7 @@ class BlockDetector:
             w_pad = x2_pad - x_pad
             h_pad = y2_pad - y_pad
 
-            block_img = binary_image[y_pad:y2_pad, x_pad:x2_pad]
+            block_img = source_img[y_pad:y2_pad, x_pad:x2_pad]
             if block_img.size == 0:
                 continue
 

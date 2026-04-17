@@ -44,11 +44,11 @@ class HeuristicClassifier:
         # ── NOUVEAU : détection équation AVANT texte/figure ──
         area = h * w
         # Équation : zone petite, aspect ratio modéré à étendu (une longue ligne), densité intermédiaire
-        if (area < 80000 and 0.5 < aspect_ratio < 12.0 and 0.05 < ink_density < 0.45):
+        if (area < 300000 and 0.5 < aspect_ratio < 15.0 and 0.03 < ink_density < 0.55):
             # Vérifier qu'il y a des "îlots" isolés (lettres/symboles séparés)
             num_labels, _ = cv2.connectedComponents(img)
             density_ratio = num_labels / max(area / 500, 1)
-            if density_ratio > 0.2:  # beaucoup de composantes connexes = symboles math
+            if density_ratio > 2:   # légèrement moins strict
                 return ("equation", 0.70)
 
         # ── Code existant pour texte / figure ──

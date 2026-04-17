@@ -91,7 +91,7 @@ class ImageEnhancer:
         kernel_bg = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 25))
         bg_estimate = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel_bg)
         # Les grandes zones qui restent sombres (< 40) sont les murs/cadres, pas le tableau blanc
-        bright_mask = (bg_estimate > 40).astype(np.uint8) * 255
+        bright_mask = (bg_estimate > 150).astype(np.uint8) * 255
 
         if self.subtract_background:
             # Estimation du fond avec un filtre médian très fort (noyau 51)

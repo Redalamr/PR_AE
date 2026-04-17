@@ -48,7 +48,7 @@ ADAPTIVE_BLOCK_SIZE = 35
 ADAPTIVE_C = 10
 
 MORPH_KERNEL_SIZE = (3, 3)
-MORPH_OPEN_ITER = 1
+MORPH_OPEN_ITER = 0
 MORPH_CLOSE_ITER = 1
 SUBTRACT_BACKGROUND = True
 
@@ -86,7 +86,6 @@ HEURISTIC_DARK_DENSITY_THRESHOLD = 0.05
 # ============================================
 # OCR (ML #2)
 # ============================================
-DOCTR_MODEL_PATH = MODELS_DIR / "doctr_finetuned_best.pth"
 DOCTR_DET_ARCH = "db_resnet50"
 DOCTR_RECO_ARCH = "crnn_vgg16_bn"
 

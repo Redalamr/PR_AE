@@ -40,29 +40,32 @@ class DocTREngine:
     """
 
     def __init__(
-        self, model_path: Optional[Path] = None,
+        self,
         det_arch: str = config.DOCTR_DET_ARCH,
         reco_arch: str = config.DOCTR_RECO_ARCH,
         device: Optional[str] = None,
     ):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self.model_path = model_path or config.DOCTR_MODEL_PATH
 
         from doctr.models import ocr_predictor
 
         logger.info(f"Chargement docTR — det={det_arch}, reco={reco_arch}")
+        
+        # Le flux utilisé par docTR (automatisation du cache) :
+        # ocr_predictor(pretrained=True)
+        #         ↓
+        # télécharge si absent
+        #         ↓
+        # stocke dans .cache/doctr/
+        #         ↓
+        # réutilise automatiquement ensuite
         self.predictor = ocr_predictor(
-            det_arch=det_arch, reco_arch=reco_arch, pretrained=True,
+            det_arch=det_arch, 
+            reco_arch=reco_arch, 
+            pretrained=True,
+            detect_orientation=True,
+            assume_straight_pages=False,  # Permet de redresser automatiquement les pages/lignes inclinées
         )
-
-        if self.model_path.exists():
-            state_dict = torch.load(
-                self.model_path, map_location=self.device, weights_only=True
-            )
-            self.predictor.reco_predictor.model.load_state_dict(state_dict)
-            logger.info(f"Poids fine-tunés chargés : {self.model_path}")
-        else:
-            logger.warning(f"Poids non trouvés ({self.model_path}). Modèle pré-entraîné.")
 
         logger.info(f"DocTREngine prêt sur {self.device}")
 

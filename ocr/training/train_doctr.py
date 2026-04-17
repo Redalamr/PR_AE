@@ -122,7 +122,7 @@ def train_doctr(
 
     mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
     mlflow.set_experiment(config.MLFLOW_EXPERIMENT_OCR)
-    save_path = save_path or config.DOCTR_MODEL_PATH
+    save_path = save_path or (config.MODELS_DIR / "doctr_finetuned_best.pth")
 
     with mlflow.start_run(run_name=f"doctr_{run_name}"):
         mlflow.log_params({

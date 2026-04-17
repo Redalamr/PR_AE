@@ -340,9 +340,13 @@ def run_pipeline(
     )
     binary = preprocessing.run(image)
 
+    # ── 1.5 NOUVEAU : Isolation du tableau blanc ──
+    from layout.whiteboard_locator import isolate_whiteboard
+    binary = isolate_whiteboard(binary, image)
+
     # ── 2. Détection de blocs ──
     detector = BlockDetector()
-    blocks = detector.detect(binary)
+    blocks = detector.detect(binary, original_image=image)
 
     # ── 3. Classification ──
     if use_cnn:
@@ -789,7 +793,7 @@ if uploaded_file is not None:
 
         with col_bin:
             with st.expander("🔍 Debug — Image binarisée (développement)"):
-                st.image(result.binary_image, caption="Sortie du prétraitement", width="stretch")
+                st.image(result.binary_image, caption="Sortie prétraitement (masquée)", width="stretch")
 
         with col_blocks:
             st.markdown("#### 🧩 Blocs Détectés")
